@@ -11,6 +11,7 @@ class InputManager {
 
         void Init(GLFWwindow* window);
         void Update();
+        void ClearEvents();
 
         const std::vector<InputEvent>& GetEvents() const;
 

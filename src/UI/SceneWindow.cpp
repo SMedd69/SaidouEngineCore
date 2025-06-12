@@ -1,8 +1,11 @@
 #include <UI/SceneWindow.h>
 #include "Input/InputManager.h"
 #include <imgui.h>
+#include "UI/Tools/ImGuizmo.h"
 #include <iostream>
 #include <vector>
+#include <glm/gtc/type_ptr.hpp>
+#include <Objects/TransformComponent.h>
 
 // Shader sources
 const char* vertexShaderSrc = R"(
@@ -25,8 +28,9 @@ void main()
 )";
 
 SceneWindow::SceneWindow(GLFWwindow* window)
-    : m_window(window), m_fbWidth(1280), m_fbHeight(720)
+    : m_window(window), m_fbWidth(1), m_fbHeight(1)
 {
+    m_scene = std::make_shared<Scene>();
     glfwGetCursorPos(m_window, &m_lastX, &m_lastY);
     m_gridShaderProgram = CreateShaderProgram(vertexShaderSrc, fragmentShaderSrc);
     InitGrid();
@@ -155,41 +159,49 @@ void SceneWindow::ProcessMouseMovement(float dx, float dy, bool orbiting, bool p
 
 void SceneWindow::ProcessInput()
 {
-    // if (!ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem |
-    //                             ImGuiHoveredFlags_ChildWindows |
-    //                             ImGuiHoveredFlags_RootWindow))
-    //     return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 scenePos = ImGui::GetCursorScreenPos();
+    ImVec2 mousePos = io.MousePos;
 
-    std::cout << "Process Input ok" << std::endl;
-    // Récupérer la position et le mouvement
+    bool mouseOverScene =
+        mousePos.x >= scenePos.x && mousePos.x < scenePos.x + m_viewportWidth &&
+        mousePos.y >= scenePos.y && mousePos.y < scenePos.y + m_viewportHeight;
+
+    if (!mouseOverScene)
+        return;
+
+
     const auto& events = InputManager::Instance().GetEvents();
-
-    double mouseX = m_lastX;
-    double mouseY = m_lastY;
 
     float dx = 0.0f;
     float dy = 0.0f;
+    bool gotMouseMove = false;
 
     for (const auto& e : events)
     {
         if (e.type == InputEventType::MouseMove)
         {
-            dx = static_cast<float>(e.mouseMove.x - mouseX);
-            dy = static_cast<float>(e.mouseMove.y - mouseY);
+            dx += static_cast<float>(e.mouseMove.x - m_lastX);
+            dy += static_cast<float>(e.mouseMove.y - m_lastY);
 
-            mouseX = e.mouseMove.x;
-            mouseY = e.mouseMove.y;
+            m_lastX = e.mouseMove.x;
+            m_lastY = e.mouseMove.y;
+
+            gotMouseMove = true;
         }
         else if (e.type == InputEventType::Scroll)
         {
-            OnScroll(0.0, e.scroll.yOffset);
+            float zoomSpeed = 0.6f;
+            m_distance -= float(e.scroll.yOffset) * zoomSpeed;
+            m_distance = glm::clamp(m_distance, 1.0f, 100.0f);
         }
     }
 
-    m_lastX = mouseX;
-    m_lastY = mouseY;
+    if (!gotMouseMove)
+    {
+        glfwGetCursorPos(m_window, &m_lastX, &m_lastY);
+    }
 
-    // Ici, interroger directement GLFW pour savoir si les boutons sont maintenus
     bool leftPressed = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS;
     bool rightPressed = glfwGetMouseButton(m_window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
 
@@ -197,12 +209,6 @@ void SceneWindow::ProcessInput()
     {
         ProcessMouseMovement(dx, dy, leftPressed, rightPressed);
     }
-}
-
-
-void SceneWindow::OnScroll(double, double yoffset)
-{
-    m_pendingScrollY += yoffset;
 }
 
 void SceneWindow::DrawGrid()
@@ -258,6 +264,9 @@ void SceneWindow::Render()
         m_viewportWidth = (int)avail.x;
         m_viewportHeight = (int)avail.y;
 
+        ProcessInput();
+        InputManager::Instance().ClearEvents(); // Nettoyage
+
         UpdateFramebufferIfNeeded();
 
         glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
@@ -272,19 +281,42 @@ void SceneWindow::Render()
 
         ImGui::Image((ImTextureID)(uintptr_t)m_renderTexture, avail, ImVec2(0, 1), ImVec2(1, 0));
 
-        ProcessInput();
+        // 1. Configuration de ImGuizmo
+        ImGuizmo::SetOrthographic(false);
+        ImGuizmo::SetDrawlist();
 
-        ImGui::Text("Distance: %.2f | Yaw: %.2f | Pitch: %.2f", m_distance, glm::degrees(m_yaw), glm::degrees(m_pitch));
+        ImVec2 windowPos = ImGui::GetWindowPos();
+        ImVec2 windowSize = ImGui::GetWindowSize();
+        ImGuizmo::SetRect(windowPos.x, windowPos.y, windowSize.x, windowSize.y);
 
-        if(std::abs(m_pendingScrollY) > 0.01)
+        // 2. S'assurer qu'il y a un GameObject sélectionné
+        if (m_scene && m_scene->selectedObject)
         {
-            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
+            auto transform = m_scene->selectedObject->GetComponent<TransformComponent>();
+            if (!transform) return;
+
+            glm::mat4 model = transform->GetTransformMatrix(); // Tu dois avoir cette méthode dans TransformComponent
+            glm::mat4 view = GetViewMatrix();
+            glm::mat4 proj = glm::perspective(glm::radians(m_fov), (float)m_viewportWidth / m_viewportHeight, 0.1f, 1000.0f);
+
+            static ImGuizmo::OPERATION currentOperation = ImGuizmo::TRANSLATE;
+            static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
+
+            // Raccourcis clavier pour changer d'outil
+            if (ImGui::IsKeyPressed(ImGuiKey_T)) currentOperation = ImGuizmo::TRANSLATE;
+            if (ImGui::IsKeyPressed(ImGuiKey_R)) currentOperation = ImGuizmo::ROTATE;
+            if (ImGui::IsKeyPressed(ImGuiKey_S)) currentOperation = ImGuizmo::SCALE;
+
+            // Affichage du gizmo
+            ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
+                                currentOperation, currentMode,
+                                glm::value_ptr(model));
+
+            // Si l'utilisateur manipule le gizmo, on met à jour le Transform
+            if (ImGuizmo::IsUsing())
             {
-                float zoomSpeed = 0.6f;
-                m_distance -= float(m_pendingScrollY) * zoomSpeed;
-                m_distance = glm::clamp(m_distance, 1.0f, 100.0f);
+                transform->SetFromMatrix(model); // Cette fonction doit extraire position, rotation, scale
             }
-            m_pendingScrollY = 0.0;
         }
     }
 

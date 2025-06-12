@@ -5,14 +5,6 @@
 #include <backends/imgui_impl_opengl3.h>
 #include <iostream>
 
-static SceneWindow* g_scene = nullptr;
-
-void ScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
-{
-    if (g_scene)
-        g_scene->OnScroll(xoffset, yoffset);
-}
-
 Engine::Engine(bool running, const std::string& projectPath, const std::string& projectName)
     : m_running(running), m_window(nullptr), m_projectPath(projectPath), m_projectName(projectName), m_showLauncher(false)
 {
@@ -63,25 +55,24 @@ void Engine::Init()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(m_window, true);
+    ImGui_ImplGlfw_InitForOpenGL(m_window, false);
     ImGui_ImplOpenGL3_Init("#version 330");
 }
 
 void Engine::InitUI() {
     m_dockspace = std::make_unique<DockspaceWindow>();
-    m_hierarchy = std::make_unique<HierarchyWindow>();
     m_scene = std::make_unique<SceneWindow>(m_window);
-    m_game = std::make_unique<GameWindow>();
+    m_hierarchy = std::make_unique<HierarchyWindow>();
     m_inspector = std::make_unique<InspectorWindow>();
+    m_game = std::make_unique<GameWindow>();
     m_project = std::make_unique<ProjectWindow>();
-
     m_menuBar = std::make_unique<MenuBarUI>();
     m_menuBar->p_showLauncher = &m_showLauncher;
 
-    InputManager::Instance().Init(m_window);
+    m_hierarchy->SetScene(m_scene->GetScene().get());
+    m_inspector->SetScene(m_scene->GetScene().get());
 
-    g_scene = m_scene.get();
-    glfwSetScrollCallback(m_window, ScrollCallback);
+    InputManager::Instance().Init(m_window);
 }
 
 void Engine::Shutdown()
@@ -113,10 +104,10 @@ void Engine::BeginFrame()
 void Engine::RenderUI()
 {
     if(m_dockspace) m_dockspace->Render();
-    if(m_hierarchy) m_hierarchy->Render();
     if(m_scene) m_scene->Render();
-    if(m_game) m_game->Render();
+    if(m_hierarchy) m_hierarchy->Render();
     if(m_inspector) m_inspector->Render();
+    if(m_game) m_game->Render();
     if(m_project) m_project->Render();
     if(m_menuBar) m_menuBar->Render();
 }
@@ -143,5 +134,7 @@ void Engine::Run()
         BeginFrame();
         RenderUI();
         EndFrame();
+
+        InputManager::Instance().ClearEvents();
     }
 }

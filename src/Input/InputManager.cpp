@@ -1,6 +1,8 @@
 #include "Input/InputManager.h"
 #include <iostream>
 
+#include <imgui_impl_glfw.h>
+
 InputManager& InputManager::Instance()
 {
     static InputManager instance;
@@ -13,6 +15,7 @@ void InputManager::Init(GLFWwindow* window)
     glfwSetWindowUserPointer(window, this);
 
     glfwSetScrollCallback(window, [](GLFWwindow* win, double xoff, double yoff) {
+        ImGui_ImplGlfw_ScrollCallback(win, xoff, yoff);
         auto* self = static_cast<InputManager*>(glfwGetWindowUserPointer(win));
         InputEvent e;
         e.type = InputEventType::Scroll;
@@ -22,6 +25,7 @@ void InputManager::Init(GLFWwindow* window)
     });
 
     glfwSetCursorPosCallback(window, [](GLFWwindow* win, double x, double y) {
+        ImGui_ImplGlfw_CursorPosCallback(win, x, y);
         auto* self = static_cast<InputManager*>(glfwGetWindowUserPointer(win));
         InputEvent e;
         e.type = InputEventType::MouseMove;
@@ -30,6 +34,7 @@ void InputManager::Init(GLFWwindow* window)
     });
 
     glfwSetMouseButtonCallback(window, [](GLFWwindow* win, int button, int action, int mods) {
+        ImGui_ImplGlfw_MouseButtonCallback(win, button, action, mods);
         auto* self = static_cast<InputManager*>(glfwGetWindowUserPointer(win));
         InputEvent e;
         e.type = InputEventType::MouseButton;
@@ -37,8 +42,9 @@ void InputManager::Init(GLFWwindow* window)
         std::cout << "Mouse: " << e.mouseButton.button << std::endl;
         self->PushEvent(e);
     });
-
+    
     glfwSetKeyCallback(window, [](GLFWwindow* win, int key, int scancode, int action, int mods) {
+        ImGui_ImplGlfw_KeyCallback(win, key, scancode, action, mods);
         auto* self = static_cast<InputManager*>(glfwGetWindowUserPointer(win));
         InputEvent e;
         e.type = InputEventType::Key;
@@ -48,6 +54,7 @@ void InputManager::Init(GLFWwindow* window)
     });
 
     glfwSetCharCallback(window, [](GLFWwindow* win, unsigned int codepoint) {
+        ImGui_ImplGlfw_CharCallback(win, codepoint);
         auto* self = static_cast<InputManager*>(glfwGetWindowUserPointer(win));
         InputEvent e;
         e.type = InputEventType::Char;
@@ -57,7 +64,6 @@ void InputManager::Init(GLFWwindow* window)
 }
 
 void InputManager::PushEvent(const InputEvent& event) {
-    
     m_eventQueue.push(event);
 }
 
@@ -68,6 +74,11 @@ void InputManager::Update() {
         m_eventQueue.pop();
     }
 }
+
+void InputManager::ClearEvents() {
+    m_currentFrameEvents.clear();
+}
+
 
 const std::vector<InputEvent>& InputManager::GetEvents() const {
     return m_currentFrameEvents;

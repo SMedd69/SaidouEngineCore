@@ -19,6 +19,7 @@ set(GLM_DIR ${CMAKE_SOURCE_DIR}/external/glm)
 file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
     ${SOURCE_DIR}/Engine/*.cpp
     ${SOURCE_DIR}/Input/*.cpp
+    ${SOURCE_DIR}/Objects/*.cpp
     ${SOURCE_DIR}/UI/*.cpp
     ${SOURCE_DIR}/main.cpp
 )

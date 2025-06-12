@@ -1,6 +1,7 @@
 #pragma once
 
 #include <UI/IUIWindow.h>
+#include <Core/Scene.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glad/gl.h>
@@ -14,12 +15,14 @@ public:
     ~SceneWindow();
 
     void Render() override;
-
-    void OnScroll(double xoffset, double yoffset);
     void ProcessInput();
+
+    std::shared_ptr<Scene> GetScene() const { return m_scene; }
 
 private:
     GLFWwindow* m_window;
+
+    std::shared_ptr<Scene> m_scene;
 
     unsigned int m_framebuffer = 0;
     unsigned int m_renderTexture = 0;
@@ -36,7 +39,6 @@ private:
     bool m_leftMousePressed = false;
     bool m_rightMousePressed = false;
     double m_lastX = 0.0, m_lastY = 0.0;
-    double m_pendingScrollY = 0.0;
 
     glm::mat4 GetViewMatrix() const;
     glm::vec3 GetCameraPosition() const;
@@ -62,5 +64,5 @@ private:
     unsigned int CreateShaderProgram(const char* vertexSrc, const char* fragmentSrc);
     void UpdateFramebufferIfNeeded();
 
-    void InitGrid(int size = 20, float step = 1.0f);
+    void InitGrid(int size = 10, float step = .5f);
 };
