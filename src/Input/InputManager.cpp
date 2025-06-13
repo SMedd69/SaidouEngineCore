@@ -20,7 +20,6 @@ void InputManager::Init(GLFWwindow* window)
         InputEvent e;
         e.type = InputEventType::Scroll;
         e.scroll = { xoff, yoff };
-        std::cout << "Scroll Y: " << yoff << std::endl;
         self->PushEvent(e);
     });
 
@@ -39,7 +38,6 @@ void InputManager::Init(GLFWwindow* window)
         InputEvent e;
         e.type = InputEventType::MouseButton;
         e.mouseButton = { button, action, mods };
-        std::cout << "Mouse: " << e.mouseButton.button << std::endl;
         self->PushEvent(e);
     });
     
@@ -49,7 +47,6 @@ void InputManager::Init(GLFWwindow* window)
         InputEvent e;
         e.type = InputEventType::Key;
         e.key = { key, scancode, action, mods };
-        std::cout << "Key: " << key << std::endl;
         self->PushEvent(e);
     });
 

@@ -12,6 +12,7 @@ public:
     TransformComponent();
     void SetFromMatrix(const glm::mat4& matrix);
     glm::mat4 GetTransformMatrix() const;
+    glm::mat4 GetWorldTransformMatrix() const;
 
     std::string GetTypeName() const override { return "Transform"; }
     void OnInspectorGUI() override;

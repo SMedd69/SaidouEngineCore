@@ -82,7 +82,6 @@ std::string Launcher::Run()
             config.close();
             projectReady = true;
             selectedProject = finalPath;
-            std::cout << "Nom projet: " << projectName;
             SetNameProject(projectName);
         }
 
@@ -99,7 +98,7 @@ std::string Launcher::Run()
         if (selectedIndex >= 0) {
             if (ImGui::Button("Charger le projet sélectionné")) {
                 selectedProject = std::string(basePathBuffer) + "/" + projects[selectedIndex];
-                std::cout << "Nom projet: " << projectName;
+
                 SetNameProject(projectName);
                 projectReady = true;
             }
