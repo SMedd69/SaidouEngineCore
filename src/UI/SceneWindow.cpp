@@ -159,6 +159,12 @@ void SceneWindow::ProcessMouseMovement(float dx, float dy, bool orbiting, bool p
 
 void SceneWindow::ProcessInput()
 {
+    if (ImGuizmo::IsUsing() || ImGuizmo::IsOver())
+    {
+        // On ne traite pas l'input caméra pendant la manipulation ou le survol du gizmo
+        return;
+    }
+
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 scenePos = ImGui::GetCursorScreenPos();
     ImVec2 mousePos = io.MousePos;
@@ -256,6 +262,7 @@ void SceneWindow::UpdateFramebufferIfNeeded()
 
 void SceneWindow::Render()
 {
+    ImGuizmo::Enable(true);
     bool isSceneOpen = ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     if (isSceneOpen)
@@ -265,6 +272,7 @@ void SceneWindow::Render()
         m_viewportHeight = (int)avail.y;
 
         ProcessInput();
+
         InputManager::Instance().ClearEvents(); // Nettoyage
 
         UpdateFramebufferIfNeeded();
@@ -280,14 +288,15 @@ void SceneWindow::Render()
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         ImGui::Image((ImTextureID)(uintptr_t)m_renderTexture, avail, ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::SetItemAllowOverlap();
 
         // 1. Configuration de ImGuizmo
         ImGuizmo::SetOrthographic(false);
         ImGuizmo::SetDrawlist();
 
-        ImVec2 windowPos = ImGui::GetWindowPos();
-        ImVec2 windowSize = ImGui::GetWindowSize();
-        ImGuizmo::SetRect(windowPos.x, windowPos.y, windowSize.x, windowSize.y);
+        ImVec2 imagePos = ImGui::GetItemRectMin();
+        ImVec2 imageSize = ImGui::GetItemRectSize();
+        ImGuizmo::SetRect(imagePos.x, imagePos.y, imageSize.x, imageSize.y);
 
         // 2. S'assurer qu'il y a un GameObject sélectionné
         if (m_scene && m_scene->selectedObject)
@@ -295,7 +304,7 @@ void SceneWindow::Render()
             auto transform = m_scene->selectedObject->GetComponent<TransformComponent>();
             if (!transform) return;
 
-            glm::mat4 model = transform->GetTransformMatrix(); // Tu dois avoir cette méthode dans TransformComponent
+            glm::mat4 model = transform->GetWorldTransformMatrix(); // Tu dois avoir cette méthode dans TransformComponent
             glm::mat4 view = GetViewMatrix();
             glm::mat4 proj = glm::perspective(glm::radians(m_fov), (float)m_viewportWidth / m_viewportHeight, 0.1f, 1000.0f);
 
@@ -308,12 +317,14 @@ void SceneWindow::Render()
             if (ImGui::IsKeyPressed(ImGuiKey_S)) currentOperation = ImGuizmo::SCALE;
 
             // Affichage du gizmo
-            ImGuizmo::Manipulate(glm::value_ptr(view), glm::value_ptr(proj),
-                                currentOperation, currentMode,
-                                glm::value_ptr(model));
+            ImGuizmo::Manipulate(
+                glm::value_ptr(view), glm::value_ptr(proj),
+                currentOperation, currentMode,
+                glm::value_ptr(model)
+            );
 
             // Si l'utilisateur manipule le gizmo, on met à jour le Transform
-            if (ImGuizmo::IsUsing())
+            if (ImGuizmo::IsUsing() && ImGuizmo::IsOver())
             {
                 transform->SetFromMatrix(model); // Cette fonction doit extraire position, rotation, scale
             }
