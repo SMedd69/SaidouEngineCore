@@ -1,5 +1,8 @@
 #include <UI/HierarchyWindow.h>
 #include <Objects/TransformComponent.h>
+#include <Objects/BoxCollider.h>
+#include <Objects/MeshRenderer.h>
+#include <Objects/MeshFilter.h>
 #include <imgui.h>
 #include <iostream>
 #include <cstring>
@@ -39,6 +42,15 @@ void HierarchyWindow::DrawHierarchy(Scene& scene)
                 auto go = std::make_shared<GameObject>(MakeUniqueName(scene, "New GameObject"));
                 go->AddComponent(std::make_shared<TransformComponent>());
                 scene.AddGameObject(go);
+            });
+
+            UI::ContextMenu::AddMenuItem("Créer un Cube", [&]() {
+                auto cube = std::make_shared<GameObject>(MakeUniqueName(scene, "Cube"));
+                cube->AddComponent(std::make_shared<TransformComponent>());
+                cube->AddComponent(std::make_shared<MeshFilter>());
+                cube->AddComponent(std::make_shared<MeshRenderer>());
+                cube->AddComponent(std::make_shared<BoxCollider>());
+                scene.AddGameObject(cube);
             });
 
             for (auto& item : UI::ContextMenu::s_menuItems) {
