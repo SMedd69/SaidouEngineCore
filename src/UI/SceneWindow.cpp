@@ -6,24 +6,36 @@
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
 #include <Objects/TransformComponent.h>
+#include <Objects/MeshFilter.h>
+#include <Objects/MeshRenderer.h>
+#include <Engine/MaterialManager.h>
 
 // Shader sources
 const char* vertexShaderSrc = R"(
 #version 330 core
 layout(location = 0) in vec3 aPos;
-uniform mat4 uViewProj;
-void main()
-{
-    gl_Position = uViewProj * vec4(aPos, 1.0);
+
+uniform mat4 u_Model;
+uniform mat4 u_View;
+uniform mat4 u_Projection;
+
+void main() {
+    gl_Position = u_Projection * u_View * u_Model * vec4(aPos, 1.0);
 }
 )";
 
 const char* fragmentShaderSrc = R"(
 #version 330 core
 out vec4 FragColor;
+
+uniform vec4 u_Albedo;
+uniform float u_Metallic;
+uniform float u_Roughness;
+
 void main()
 {
-    FragColor = vec4(0.5, 0.5, 0.5, 1.0);
+    // Simplification : ici juste afficher la couleur albedo (tu pourras faire un shading plus complexe plus tard)
+    FragColor = u_Albedo;
 }
 )";
 
@@ -32,6 +44,8 @@ SceneWindow::SceneWindow(GLFWwindow* window)
 {
     m_scene = std::make_shared<Scene>();
     glfwGetCursorPos(m_window, &m_lastX, &m_lastY);
+    // m_defaultShader = std::make_shared<Shader>("assets/shaders/basic.vert", "assets/shaders/basic.frag");
+
     m_gridShaderProgram = CreateShaderProgram(vertexShaderSrc, fragmentShaderSrc);
     InitGrid();
 
@@ -159,7 +173,7 @@ void SceneWindow::ProcessMouseMovement(float dx, float dy, bool orbiting, bool p
 
 void SceneWindow::ProcessInput()
 {
-    if (ImGuizmo::IsUsing() || ImGuizmo::IsOver())
+    if (ImGuizmo::IsUsing())
     {
         // On ne traite pas l'input caméra pendant la manipulation ou le survol du gizmo
         return;
@@ -224,16 +238,22 @@ void SceneWindow::DrawGrid()
     float aspect = m_viewportHeight > 0 ? float(m_viewportWidth) / m_viewportHeight : 1.0f;
     glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 100.0f);
     glm::mat4 view = GetViewMatrix();
-    glm::mat4 viewProj = projection * view;
+    glm::mat4 model = glm::mat4(1.0f); // matrice identité
 
-    int loc = glGetUniformLocation(m_gridShaderProgram, "uViewProj");
-    glUniformMatrix4fv(loc, 1, GL_FALSE, &viewProj[0][0]);
+    int locModel = glGetUniformLocation(m_gridShaderProgram, "u_Model");
+    int locView = glGetUniformLocation(m_gridShaderProgram, "u_View");
+    int locProj = glGetUniformLocation(m_gridShaderProgram, "u_Projection");
+
+    glUniformMatrix4fv(locModel, 1, GL_FALSE, &model[0][0]);
+    glUniformMatrix4fv(locView, 1, GL_FALSE, &view[0][0]);
+    glUniformMatrix4fv(locProj, 1, GL_FALSE, &projection[0][0]);
 
     glBindVertexArray(m_gridVAO);
     glDrawArrays(GL_LINES, 0, m_gridVertexCount);
     glBindVertexArray(0);
 
     glUseProgram(0);
+
 }
 
 void SceneWindow::UpdateFramebufferIfNeeded()
@@ -268,13 +288,11 @@ void SceneWindow::Render()
     if (isSceneOpen)
     {
         ImVec2 avail = ImGui::GetContentRegionAvail();
-        m_viewportWidth = (int)avail.x;
-        m_viewportHeight = (int)avail.y;
+        m_viewportWidth = static_cast<int>(avail.x);
+        m_viewportHeight = static_cast<int>(avail.y);
 
         ProcessInput();
-
-        InputManager::Instance().ClearEvents(); // Nettoyage
-
+        InputManager::Instance().ClearEvents();
         UpdateFramebufferIfNeeded();
 
         glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
@@ -285,12 +303,67 @@ void SceneWindow::Render()
 
         DrawGrid();
 
+        // Matrices de caméra
+        float aspect = m_viewportHeight > 0 ? static_cast<float>(m_viewportWidth) / m_viewportHeight : 1.0f;
+        glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 100.0f);
+        glm::mat4 view = GetViewMatrix();
+
+        // Utilisation de ton shader de base
+        glUseProgram(m_gridShaderProgram);
+
+        int locModel = glGetUniformLocation(m_gridShaderProgram, "u_Model");
+        int locView = glGetUniformLocation(m_gridShaderProgram, "u_View");
+        int locProj = glGetUniformLocation(m_gridShaderProgram, "u_Projection");
+
+        glUniformMatrix4fv(locView, 1, GL_FALSE, &view[0][0]);
+        glUniformMatrix4fv(locProj, 1, GL_FALSE, &projection[0][0]);
+
+        for (auto& obj : m_scene->gameObjects)
+        {
+            auto meshRenderer = obj->GetComponent<MeshRenderer>();
+            auto meshFilter = obj->GetComponent<MeshFilter>();
+            auto transform = obj->GetComponent<TransformComponent>();
+
+            if (meshRenderer && meshFilter && transform && meshFilter->mesh)
+            {
+                glm::mat4 model = transform->GetWorldTransformMatrix();
+                std::cout << "[Render] model[3]: "
+                        << model[3].x << ", " << model[3].y << ", " << model[3].z << std::endl;
+                std::cout << "[Render] " << obj->name << " Position: "
+                        << transform->position.x << ", "
+                        << transform->position.y << ", "
+                        << transform->position.z << std::endl;
+                glUniformMatrix4fv(locModel, 1, GL_FALSE, &model[0][0]);
+
+                glBindVertexArray(meshFilter->mesh->GetVAO());
+
+                auto material = MaterialManager::Instance().GetMaterial(meshRenderer->material->name);
+                if (!material) {
+                    material = MaterialManager::Instance().GetMaterial("Default");
+                }
+
+                int locAlbedo = glGetUniformLocation(m_gridShaderProgram, "u_Albedo");
+                int locMetallic = glGetUniformLocation(m_gridShaderProgram, "u_Metallic");
+                int locRoughness = glGetUniformLocation(m_gridShaderProgram, "u_Roughness");
+
+                glUniform4fv(locAlbedo, 1, glm::value_ptr(material->albedo));
+                glUniform1f(locMetallic, material->metallic);
+                glUniform1f(locRoughness, material->roughness);
+                glDrawElements(GL_TRIANGLES, meshFilter->mesh->GetIndexCount(), GL_UNSIGNED_INT, 0);
+                glBindVertexArray(0);
+            }
+        }
+
+        glUseProgram(0);
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+        // Affichage de la texture rendue dans ImGui
         ImGui::Image((ImTextureID)(uintptr_t)m_renderTexture, avail, ImVec2(0, 1), ImVec2(1, 0));
         ImGui::SetItemAllowOverlap();
 
-        // 1. Configuration de ImGuizmo
+        // ========================
+        // === Gizmo de ImGuizmo ===
+        // ========================
         ImGuizmo::SetOrthographic(false);
         ImGuizmo::SetDrawlist();
 
@@ -298,35 +371,55 @@ void SceneWindow::Render()
         ImVec2 imageSize = ImGui::GetItemRectSize();
         ImGuizmo::SetRect(imagePos.x, imagePos.y, imageSize.x, imageSize.y);
 
-        // 2. S'assurer qu'il y a un GameObject sélectionné
         if (m_scene && m_scene->selectedObject)
         {
             auto transform = m_scene->selectedObject->GetComponent<TransformComponent>();
             if (!transform) return;
 
-            glm::mat4 model = transform->GetWorldTransformMatrix(); // Tu dois avoir cette méthode dans TransformComponent
-            glm::mat4 view = GetViewMatrix();
-            glm::mat4 proj = glm::perspective(glm::radians(m_fov), (float)m_viewportWidth / m_viewportHeight, 0.1f, 1000.0f);
+            glm::mat4 model = transform->GetWorldTransformMatrix();
 
             static ImGuizmo::OPERATION currentOperation = ImGuizmo::TRANSLATE;
             static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
 
-            // Raccourcis clavier pour changer d'outil
             if (ImGui::IsKeyPressed(ImGuiKey_T)) currentOperation = ImGuizmo::TRANSLATE;
             if (ImGui::IsKeyPressed(ImGuiKey_R)) currentOperation = ImGuizmo::ROTATE;
             if (ImGui::IsKeyPressed(ImGuiKey_S)) currentOperation = ImGuizmo::SCALE;
 
-            // Affichage du gizmo
             ImGuizmo::Manipulate(
-                glm::value_ptr(view), glm::value_ptr(proj),
+                glm::value_ptr(view),
+                glm::value_ptr(projection),
                 currentOperation, currentMode,
                 glm::value_ptr(model)
             );
 
-            // Si l'utilisateur manipule le gizmo, on met à jour le Transform
             if (ImGuizmo::IsUsing() && ImGuizmo::IsOver())
             {
-                transform->SetFromMatrix(model); // Cette fonction doit extraire position, rotation, scale
+                if (m_scene->selectedObject)
+                {
+                    auto transform = m_scene->selectedObject->GetComponent<TransformComponent>();
+                    if (transform)
+                    {
+                        // Transformer matrice mondiale modifiée en matrice locale
+                        if (auto parent = m_scene->selectedObject->parent.lock())
+                        {
+                            auto parentTransform = parent->GetComponent<TransformComponent>();
+                            if (parentTransform)
+                            {
+                                glm::mat4 parentWorld = parentTransform->GetWorldTransformMatrix();
+                                glm::mat4 localMatrix = glm::inverse(parentWorld) * model;
+                                transform->SetFromMatrix(localMatrix);
+                            }
+                            else
+                            {
+                                transform->SetFromMatrix(model);
+                            }
+                        }
+                        else
+                        {
+                            transform->SetFromMatrix(model);
+                        }
+                    }
+                }
             }
         }
     }

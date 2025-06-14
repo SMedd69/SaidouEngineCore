@@ -2,6 +2,7 @@
 
 #include <UI/IUIWindow.h>
 #include <Core/Scene.h>
+#include <Engine/Shader.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glad/gl.h>
@@ -18,6 +19,7 @@ public:
     void ProcessInput();
 
     std::shared_ptr<Scene> GetScene() const { return m_scene; }
+    std::shared_ptr<Shader> m_defaultShader;
 
 private:
     GLFWwindow* m_window;

@@ -21,6 +21,7 @@ class Engine
 
         void Init();
         void InitUI();
+        void InitializeMaterials();
         void Shutdown();
         void ProcessEvents();
         void BeginFrame();

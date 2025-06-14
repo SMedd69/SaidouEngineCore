@@ -2,17 +2,19 @@
 #include <Objects/Component.h>
 #include <imgui.h>
 #include <string>
+#include <memory>
+#include <Engine/Mesh.h>
+#include <Engine/MeshFactory.h>
 
 class MeshFilter : public Component {
 public:
+    std::shared_ptr<Mesh> mesh;
+    PrimitiveType primitiveType = PrimitiveType::Cube;
     std::string meshName = "Cube";
 
-    std::string GetTypeName() const override {
-        return "MeshFilter";
-    }
+    MeshFilter() = default;
+    explicit MeshFilter(std::shared_ptr<Mesh> meshPtr, PrimitiveType type = PrimitiveType::Cube);
 
-    void OnInspectorGUI() override {
-        ImGui::Text("Mesh Filter");
-        ImGui::InputText("Mesh", &meshName[0], meshName.size() + 1);
-    }
+    std::string GetTypeName() const override;
+    void OnInspectorGUI() override;
 };

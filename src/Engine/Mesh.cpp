@@ -28,8 +28,16 @@ Mesh::~Mesh() {
     glDeleteBuffers(1, &m_EBO);
 }
 
-void Mesh::Draw() {
+void Mesh::Draw() const{
     glBindVertexArray(m_VAO);
-    glDrawElements(GL_TRIANGLES, m_indexCount, GL_UNSIGNED_INT, 0);
+    glDrawElements(GL_TRIANGLES, static_cast<GLsizei>(m_indexCount), GL_UNSIGNED_INT, 0);
     glBindVertexArray(0);
+}
+
+unsigned int Mesh::GetVBO() const{
+    return m_VBO;
+}
+
+unsigned int Mesh::GetVAO() const{
+    return m_VAO;
 }

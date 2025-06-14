@@ -3,6 +3,7 @@
 #include <Objects/BoxCollider.h>
 #include <Objects/MeshRenderer.h>
 #include <Objects/MeshFilter.h>
+#include <Engine/MeshFactory.h>
 #include <imgui.h>
 #include <iostream>
 #include <cstring>
@@ -47,10 +48,56 @@ void HierarchyWindow::DrawHierarchy(Scene& scene)
             UI::ContextMenu::AddMenuItem("Créer un Cube", [&]() {
                 auto cube = std::make_shared<GameObject>(MakeUniqueName(scene, "Cube"));
                 cube->AddComponent(std::make_shared<TransformComponent>());
-                cube->AddComponent(std::make_shared<MeshFilter>());
+
+                auto mesh = MeshFactory::CreatePrimitive(PrimitiveType::Cube);
+                auto meshFilter = std::make_shared<MeshFilter>(mesh);
+                meshFilter->meshName = PrimitiveTypeToString(PrimitiveType::Cube); // 🔄 synchronise le nom
+                cube->AddComponent(meshFilter);
+
                 cube->AddComponent(std::make_shared<MeshRenderer>());
                 cube->AddComponent(std::make_shared<BoxCollider>());
                 scene.AddGameObject(cube);
+            });
+            UI::ContextMenu::AddMenuItem("Créer un Plane", [&]() {
+                auto plane = std::make_shared<GameObject>(MakeUniqueName(scene, "Plane"));
+                plane->AddComponent(std::make_shared<TransformComponent>());
+
+                auto mesh = MeshFactory::CreatePrimitive(PrimitiveType::Plane);
+                auto meshFilter = std::make_shared<MeshFilter>(mesh);
+                meshFilter->meshName = PrimitiveTypeToString(PrimitiveType::Plane); // 🔄 synchronise le nom
+                plane->AddComponent(meshFilter);
+
+                plane->AddComponent(std::make_shared<MeshRenderer>());
+                plane->AddComponent(std::make_shared<BoxCollider>());
+                scene.AddGameObject(plane);
+            });
+
+            UI::ContextMenu::AddMenuItem("Créer une Sphere", [&]() {
+                auto sphere = std::make_shared<GameObject>(MakeUniqueName(scene, "Sphere"));
+                sphere->AddComponent(std::make_shared<TransformComponent>());
+
+                auto mesh = MeshFactory::CreatePrimitive(PrimitiveType::Sphere);
+                auto meshFilter = std::make_shared<MeshFilter>(mesh);
+                meshFilter->meshName = PrimitiveTypeToString(PrimitiveType::Sphere); // 🔄 synchronise le nom
+                sphere->AddComponent(meshFilter);
+
+                sphere->AddComponent(std::make_shared<MeshRenderer>());
+                sphere->AddComponent(std::make_shared<BoxCollider>());
+                scene.AddGameObject(sphere);
+            });
+
+            UI::ContextMenu::AddMenuItem("Créer une Capsule", [&]() {
+                auto capsule = std::make_shared<GameObject>(MakeUniqueName(scene, "Capsule"));
+                capsule->AddComponent(std::make_shared<TransformComponent>());
+
+                auto mesh = MeshFactory::CreatePrimitive(PrimitiveType::Capsule);
+                auto meshFilter = std::make_shared<MeshFilter>(mesh);
+                meshFilter->meshName = PrimitiveTypeToString(PrimitiveType::Capsule); // 🔄 synchronise le nom
+                capsule->AddComponent(meshFilter);
+
+                capsule->AddComponent(std::make_shared<MeshRenderer>());
+                capsule->AddComponent(std::make_shared<BoxCollider>());
+                scene.AddGameObject(capsule);
             });
 
             for (auto& item : UI::ContextMenu::s_menuItems) {

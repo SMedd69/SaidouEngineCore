@@ -8,7 +8,18 @@ public:
     Mesh(const std::vector<float>& vertices, const std::vector<unsigned int>& indices);
     ~Mesh();
 
-    void Draw();
+    void Bind() const {
+        glBindVertexArray(m_VAO);
+    }
+
+    size_t GetIndexCount() const {
+        return m_indexCount;
+    }
+
+    unsigned int GetVBO() const;
+    unsigned int GetVAO() const;
+
+    void Draw() const;
 
 private:
     unsigned int m_VAO, m_VBO, m_EBO;

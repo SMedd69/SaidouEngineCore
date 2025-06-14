@@ -1,4 +1,6 @@
 #include "Engine/Engine.h"
+#include "Engine/Material.h"
+#include "Engine/MaterialManager.h"
 #include "Input/InputManager.h"
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
@@ -10,6 +12,7 @@ Engine::Engine(bool running, const std::string& projectPath, const std::string& 
 {
     Init();
     InitUI();
+    InitializeMaterials();
     Run();
     Shutdown();
 }
@@ -73,6 +76,18 @@ void Engine::InitUI() {
     m_inspector->SetScene(m_scene->GetScene().get());
 
     InputManager::Instance().Init(m_window);
+}
+
+void Engine::InitializeMaterials()
+{
+    auto& matMgr = MaterialManager::Instance();
+
+    auto defaultMat = std::make_shared<Material>();
+    defaultMat->name = "Default";
+    defaultMat->albedo = glm::vec4(1.f, 1.f, 1.f, 1.f);  // Blanc
+    defaultMat->metallic = 0.0f;
+    defaultMat->roughness = 0.5f;
+    matMgr.AddMaterial(defaultMat);
 }
 
 void Engine::Shutdown()
