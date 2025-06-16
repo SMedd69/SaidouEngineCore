@@ -32,10 +32,10 @@ private:
 
     // Camera parameters
     glm::vec3 m_target = glm::vec3(0.0f);
-    float m_distance = 10.0f;
-    float m_pitch = glm::radians(30.0f);
+    float m_distance = 15.0f; // plus éloigné
+    float m_pitch = glm::radians(45.0f); // angle plus plongeant
     float m_yaw = glm::radians(45.0f);
-    float m_fov = 45.0f;
+    float m_fov = 60.0f; // champ de vision plus large
 
     // Mouse tracking
     bool m_leftMousePressed = false;
@@ -54,6 +54,7 @@ private:
     unsigned int m_gridVBO = 0;
     unsigned int m_gridVertexCount = 0;
     unsigned int m_gridShaderProgram = 0;
+    unsigned int m_objectShaderProgram = 0;
 
     // Viewport size (pour passer aux shaders)
     int m_viewportWidth = 1;
@@ -66,5 +67,5 @@ private:
     unsigned int CreateShaderProgram(const char* vertexSrc, const char* fragmentSrc);
     void UpdateFramebufferIfNeeded();
 
-    void InitGrid(int size = 10, float step = .5f);
+    void InitGrid(int size = 20, float step = 1.0f);
 };

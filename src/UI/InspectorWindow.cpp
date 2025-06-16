@@ -13,7 +13,19 @@ void InspectorWindow::Render()
 void InspectorWindow::DrawInspector(Scene& scene) {
     ImGui::Begin("Inspector");
 
-    if (scene.selectedObject) {
+    if (m_selectedMaterial) {
+        // Affiche l’inspecteur du Material sélectionné dans le projet
+        m_selectedMaterial->OnInspectorGUI();
+
+        // Désélectionne le matériau si on clique en dehors d’un contrôle
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0)) {
+            if (!ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive()) {
+                m_selectedMaterial = nullptr;
+            }
+        }
+    } 
+    else if (scene.selectedObject) {
+        // Affiche l’inspecteur du GameObject sélectionné dans la scène
         ImGui::Text("GameObject: %s", scene.selectedObject->name.c_str());
 
         for (auto& comp : scene.selectedObject->components) {
@@ -36,8 +48,16 @@ void InspectorWindow::DrawInspector(Scene& scene) {
             }
             ImGui::EndPopup();
         }
-    } else {
-        ImGui::Text("No GameObject selected");
+
+        // Désélectionne le GameObject si on clique en dehors d’un contrôle
+        if (ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0)) {
+            if (!ImGui::IsAnyItemHovered() && !ImGui::IsAnyItemActive()) {
+                scene.selectedObject = nullptr;
+            }
+        }
+    } 
+    else {
+        ImGui::Text("No GameObject or Material selected");
     }
 
     ImGui::End();

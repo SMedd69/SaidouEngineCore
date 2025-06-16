@@ -6,36 +6,35 @@
 #include <vector>
 #include <glm/gtc/type_ptr.hpp>
 #include <Objects/TransformComponent.h>
+#include <Objects/DirectionnalLightComponent.h>
 #include <Objects/MeshFilter.h>
 #include <Objects/MeshRenderer.h>
 #include <Engine/MaterialManager.h>
+#include <Engine/RenderSystem.h>
+#include <Engine/Renderer.h>
 
-// Shader sources
+// --- Shaders pour la grille uniquement ---
 const char* vertexShaderSrc = R"(
 #version 330 core
 layout(location = 0) in vec3 aPos;
-
+layout(location = 1) in vec3 aColor;
+out vec3 vColor;
 uniform mat4 u_Model;
 uniform mat4 u_View;
 uniform mat4 u_Projection;
-
 void main() {
+    vColor = aColor;
     gl_Position = u_Projection * u_View * u_Model * vec4(aPos, 1.0);
 }
 )";
 
 const char* fragmentShaderSrc = R"(
 #version 330 core
+in vec3 vColor;
 out vec4 FragColor;
-
-uniform vec4 u_Albedo;
-uniform float u_Metallic;
-uniform float u_Roughness;
-
 void main()
 {
-    // Simplification : ici juste afficher la couleur albedo (tu pourras faire un shading plus complexe plus tard)
-    FragColor = u_Albedo;
+    FragColor = vec4(vColor, 1.0);
 }
 )";
 
@@ -44,9 +43,9 @@ SceneWindow::SceneWindow(GLFWwindow* window)
 {
     m_scene = std::make_shared<Scene>();
     glfwGetCursorPos(m_window, &m_lastX, &m_lastY);
-    // m_defaultShader = std::make_shared<Shader>("assets/shaders/basic.vert", "assets/shaders/basic.frag");
 
     m_gridShaderProgram = CreateShaderProgram(vertexShaderSrc, fragmentShaderSrc);
+
     InitGrid();
 
     glGenFramebuffers(1, &m_framebuffer);
@@ -110,14 +109,29 @@ unsigned int SceneWindow::CreateShaderProgram(const char* vertexSrc, const char*
     return program;
 }
 
+struct GridVertex {
+    glm::vec3 pos;
+    glm::vec3 color;
+};
+
 void SceneWindow::InitGrid(int size, float step)
 {
-    std::vector<glm::vec3> vertices;
+    std::vector<GridVertex> vertices;
+
+    glm::vec3 gridColor(0.7f, 0.7f, 0.7f);
+    glm::vec3 axisXColor(1.0f, 0.2f, 0.2f);
+    glm::vec3 axisZColor(0.2f, 0.4f, 1.0f);
+
     for (int i = -size; i <= size; ++i) {
-        vertices.emplace_back(i * step, 0.0f, -size * step);
-        vertices.emplace_back(i * step, 0.0f, size * step);
-        vertices.emplace_back(-size * step, 0.0f, i * step);
-        vertices.emplace_back(size * step, 0.0f, i * step);
+        glm::vec3 color = (i == 0) ? axisXColor : gridColor;
+        // Lignes parallèles à Z (X varie)
+        vertices.push_back({ glm::vec3(i * step, 0.0f, -size * step), color });
+        vertices.push_back({ glm::vec3(i * step, 0.0f, size * step), color });
+
+        color = (i == 0) ? axisZColor : gridColor;
+        // Lignes parallèles à X (Z varie)
+        vertices.push_back({ glm::vec3(-size * step, 0.0f, i * step), color });
+        vertices.push_back({ glm::vec3(size * step, 0.0f, i * step), color });
     }
 
     m_gridVertexCount = vertices.size();
@@ -127,10 +141,14 @@ void SceneWindow::InitGrid(int size, float step)
 
     glBindVertexArray(m_gridVAO);
     glBindBuffer(GL_ARRAY_BUFFER, m_gridVBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(glm::vec3), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GridVertex), vertices.data(), GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), (void*)0);
+    // Position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GridVertex), (void*)0);
     glEnableVertexAttribArray(0);
+    // Couleur
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GridVertex), (void*)offsetof(GridVertex, color));
+    glEnableVertexAttribArray(1);
 
     glBindVertexArray(0);
 }
@@ -173,11 +191,8 @@ void SceneWindow::ProcessMouseMovement(float dx, float dy, bool orbiting, bool p
 
 void SceneWindow::ProcessInput()
 {
-    if (ImGuizmo::IsUsing())
-    {
-        // On ne traite pas l'input caméra pendant la manipulation ou le survol du gizmo
+    if (ImGuizmo::IsUsing() || ImGuizmo::IsOver())
         return;
-    }
 
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 scenePos = ImGui::GetCursorScreenPos();
@@ -189,7 +204,6 @@ void SceneWindow::ProcessInput()
 
     if (!mouseOverScene)
         return;
-
 
     const auto& events = InputManager::Instance().GetEvents();
 
@@ -238,7 +252,7 @@ void SceneWindow::DrawGrid()
     float aspect = m_viewportHeight > 0 ? float(m_viewportWidth) / m_viewportHeight : 1.0f;
     glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 100.0f);
     glm::mat4 view = GetViewMatrix();
-    glm::mat4 model = glm::mat4(1.0f); // matrice identité
+    glm::mat4 model = glm::mat4(1.0f);
 
     int locModel = glGetUniformLocation(m_gridShaderProgram, "u_Model");
     int locView = glGetUniformLocation(m_gridShaderProgram, "u_View");
@@ -253,7 +267,6 @@ void SceneWindow::DrawGrid()
     glBindVertexArray(0);
 
     glUseProgram(0);
-
 }
 
 void SceneWindow::UpdateFramebufferIfNeeded()
@@ -283,7 +296,9 @@ void SceneWindow::UpdateFramebufferIfNeeded()
 void SceneWindow::Render()
 {
     ImGuizmo::Enable(true);
-    bool isSceneOpen = ImGui::Begin("Scene", nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    bool isSceneOpen = ImGui::Begin("Scene", nullptr,
+        ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
 
     if (isSceneOpen)
     {
@@ -292,7 +307,6 @@ void SceneWindow::Render()
         m_viewportHeight = static_cast<int>(avail.y);
 
         ProcessInput();
-        InputManager::Instance().ClearEvents();
         UpdateFramebufferIfNeeded();
 
         glBindFramebuffer(GL_FRAMEBUFFER, m_framebuffer);
@@ -308,75 +322,49 @@ void SceneWindow::Render()
         glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 100.0f);
         glm::mat4 view = GetViewMatrix();
 
-        // Utilisation de ton shader de base
-        glUseProgram(m_gridShaderProgram);
-
-        int locModel = glGetUniformLocation(m_gridShaderProgram, "u_Model");
-        int locView = glGetUniformLocation(m_gridShaderProgram, "u_View");
-        int locProj = glGetUniformLocation(m_gridShaderProgram, "u_Projection");
-
-        glUniformMatrix4fv(locView, 1, GL_FALSE, &view[0][0]);
-        glUniformMatrix4fv(locProj, 1, GL_FALSE, &projection[0][0]);
-
-        for (auto& obj : m_scene->gameObjects)
-        {
-            auto meshRenderer = obj->GetComponent<MeshRenderer>();
-            auto meshFilter = obj->GetComponent<MeshFilter>();
-            auto transform = obj->GetComponent<TransformComponent>();
-
-            if (meshRenderer && meshFilter && transform && meshFilter->mesh)
-            {
-                glm::mat4 model = transform->GetWorldTransformMatrix();
-                std::cout << "[Render] model[3]: "
-                        << model[3].x << ", " << model[3].y << ", " << model[3].z << std::endl;
-                std::cout << "[Render] " << obj->name << " Position: "
-                        << transform->position.x << ", "
-                        << transform->position.y << ", "
-                        << transform->position.z << std::endl;
-                glUniformMatrix4fv(locModel, 1, GL_FALSE, &model[0][0]);
-
-                glBindVertexArray(meshFilter->mesh->GetVAO());
-
-                auto material = MaterialManager::Instance().GetMaterial(meshRenderer->material->name);
-                if (!material) {
-                    material = MaterialManager::Instance().GetMaterial("Default");
-                }
-
-                int locAlbedo = glGetUniformLocation(m_gridShaderProgram, "u_Albedo");
-                int locMetallic = glGetUniformLocation(m_gridShaderProgram, "u_Metallic");
-                int locRoughness = glGetUniformLocation(m_gridShaderProgram, "u_Roughness");
-
-                glUniform4fv(locAlbedo, 1, glm::value_ptr(material->albedo));
-                glUniform1f(locMetallic, material->metallic);
-                glUniform1f(locRoughness, material->roughness);
-                glDrawElements(GL_TRIANGLES, meshFilter->mesh->GetIndexCount(), GL_UNSIGNED_INT, 0);
-                glBindVertexArray(0);
+        glm::vec3 sunDir = glm::vec3(-1, -1, -1); // Valeur par défaut
+        for (const auto& go : m_scene->gameObjects) {
+            auto light = go->GetComponent<DirectionalLightComponent>();
+            if (light) {
+                sunDir = light->direction;
+                break;
             }
         }
+        if (Renderer::GetSkybox())
+            Renderer::GetSkybox()->Draw(view, projection, sunDir);
 
-        glUseProgram(0);
+        // --- Rendu des objets via RenderSystem ---
+        RenderSystem::RenderScene(*m_scene, view, projection);
+
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+        ImGuiIO& io = ImGui::GetIO();
+        ImGui::Text("WantCaptureMouse: %d", io.WantCaptureMouse);
 
         // Affichage de la texture rendue dans ImGui
         ImGui::Image((ImTextureID)(uintptr_t)m_renderTexture, avail, ImVec2(0, 1), ImVec2(1, 0));
         ImGui::SetItemAllowOverlap();
 
-        // ========================
-        // === Gizmo de ImGuizmo ===
-        // ========================
-        ImGuizmo::SetOrthographic(false);
-        ImGuizmo::SetDrawlist();
-
         ImVec2 imagePos = ImGui::GetItemRectMin();
         ImVec2 imageSize = ImGui::GetItemRectSize();
-        ImGuizmo::SetRect(imagePos.x, imagePos.y, imageSize.x, imageSize.y);
+
+        // Correction pour docking :
+        ImGuiViewport* viewport = ImGui::GetWindowViewport();
+        ImVec2 imageScreenPos = imagePos;
+        if (viewport)
+            imageScreenPos = ImVec2(imagePos.x + viewport->Pos.x, imagePos.y + viewport->Pos.y);
+
+        // === Gizmo de ImGuizmo ===
+        ImGuizmo::SetOrthographic(false);
+        ImGuizmo::SetDrawlist();
+        ImGuizmo::SetRect(imageScreenPos.x, imageScreenPos.y, imageSize.x, imageSize.y);
 
         if (m_scene && m_scene->selectedObject)
         {
             auto transform = m_scene->selectedObject->GetComponent<TransformComponent>();
             if (!transform) return;
 
-            glm::mat4 model = transform->GetWorldTransformMatrix();
+            glm::mat4 model = transform->GetTransformMatrix();
 
             static ImGuizmo::OPERATION currentOperation = ImGuizmo::TRANSLATE;
             static ImGuizmo::MODE currentMode = ImGuizmo::WORLD;
@@ -392,7 +380,7 @@ void SceneWindow::Render()
                 glm::value_ptr(model)
             );
 
-            if (ImGuizmo::IsUsing() && ImGuizmo::IsOver())
+            if (ImGuizmo::IsUsing())
             {
                 if (m_scene->selectedObject)
                 {
@@ -423,6 +411,7 @@ void SceneWindow::Render()
             }
         }
     }
-
+    ImGui::PopStyleVar();
     ImGui::End();
+    InputManager::Instance().ClearEvents();
 }

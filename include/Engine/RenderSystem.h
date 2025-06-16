@@ -4,5 +4,5 @@
 
 class RenderSystem {
 public:
-    void RenderScene(const Scene& scene);
+    static void RenderScene(const Scene& scene, const glm::mat4& view, const glm::mat4& projection);
 };

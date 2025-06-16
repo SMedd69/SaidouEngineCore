@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <glm/gtc/type_ptr.hpp>
 
 Shader::Shader(const std::string& vertexPath, const std::string& fragmentPath) {
     std::string vertexCode = LoadShaderSource(vertexPath);
@@ -42,6 +43,14 @@ void Shader::Unbind() const {
 
 void Shader::SetMat4(const std::string& name, const glm::mat4& value) {
     glUniformMatrix4fv(GetUniformLocation(name), 1, GL_FALSE, &value[0][0]);
+}
+
+void Shader::SetVec4(const std::string& name, const glm::vec4& value) {
+    glUniform4fv(GetUniformLocation(name), 1, glm::value_ptr(value));
+}
+
+void Shader::SetVec3(const std::string& name, const glm::vec3& value) {
+    glUniform3fv(GetUniformLocation(name), 1, glm::value_ptr(value));
 }
 
 void Shader::SetFloat(const std::string& name, float value) {
@@ -95,3 +104,4 @@ int Shader::GetUniformLocation(const std::string& name) {
     m_uniformLocationCache[name] = location;
     return location;
 }
+

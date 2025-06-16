@@ -23,23 +23,36 @@ public:
     void OnInspectorGUI() override {
         ImGui::Text("Mesh Renderer");
 
-        // Buffer pour InputText
-        char buf[128];
-        std::strncpy(buf, materialName.c_str(), sizeof(buf));
+        // Récupérer la liste de tous les matériaux disponibles
+        auto materials = MaterialManager::Instance().GetAllMaterials();
 
-        if (ImGui::InputText("Material Name", buf, sizeof(buf))) {
-            materialName = std::string(buf);
-            material = MaterialManager::Instance().GetMaterial(materialName);
-            if (!material) {
-                ImGui::TextColored(ImVec4(1,0,0,1), "Material not found!");
+        // Construire un vecteur de pointeurs vers les noms des matériaux (c_str() garantit la validité)
+        std::vector<const char*> materialNames;
+        materialNames.reserve(materials.size());
+        for (const auto& mat : materials) {
+            materialNames.push_back(mat->name.c_str());
+        }
+
+        // Trouver l'index du matériau actuellement sélectionné dans la liste
+        int currentIndex = 0;
+        for (size_t i = 0; i < materials.size(); ++i) {
+            if (materials[i]->name == materialName) {
+                currentIndex = static_cast<int>(i);
+                break;
             }
+        }
+
+        // Afficher la combo box
+        if (ImGui::Combo("Material", &currentIndex, materialNames.data(), static_cast<int>(materialNames.size()))) {
+            // Mise à jour du matériau sélectionné
+            materialName = materials[currentIndex]->name;
+            material = materials[currentIndex];
         }
 
         if (material) {
             material->OnInspectorGUI();
         } else {
-            ImGui::TextColored(ImVec4(1,0,0,1), "Material not found!");
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Material not found!");
         }
     }
-
 };

@@ -14,6 +14,7 @@ set(GLFW_DIR ${CMAKE_SOURCE_DIR}/external/glfw)
 set(GLAD_DIR ${CMAKE_SOURCE_DIR}/external/glad)
 set(IMGUI_DIR ${CMAKE_SOURCE_DIR}/external/imgui)
 set(GLM_DIR ${CMAKE_SOURCE_DIR}/external/glm)
+set(STB_DIR ${CMAKE_SOURCE_DIR}/external/stb)
 
 # Sources
 file(GLOB_RECURSE ENGINE_SOURCES CONFIGURE_DEPENDS
@@ -48,6 +49,7 @@ target_include_directories(SaidouEngine PRIVATE
     ${IMGUI_DIR}
     ${IMGUI_DIR}/backends
     ${GLM_DIR}
+    ${STB_DIR}
 )
 
 # Definitions for ImGui
@@ -63,3 +65,9 @@ else()
     find_package(OpenGL REQUIRED)
     target_link_libraries(SaidouEngine PRIVATE glfw glad OpenGL::GL)
 endif()
+
+# Copier le dossier assets/ dans le dossier de build à chaque compilation
+add_custom_command(TARGET SaidouEngine POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:SaidouEngine>/assets
+)

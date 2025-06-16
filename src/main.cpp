@@ -4,6 +4,7 @@
 
 int main()
 {
+    std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     bool quit = false;
     std::string projectPath;
     std::string nameProject;

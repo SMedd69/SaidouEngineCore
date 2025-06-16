@@ -14,6 +14,16 @@ void TransformComponent::OnInspectorGUI() {
     ImGui::DragFloat3("Position", &position.x, 0.1f);
     ImGui::DragFloat3("Rotation", &rotation.x, 0.1f);
     ImGui::DragFloat3("Scale", &scale.x, 0.1f);
+
+    // --- Déplacement local ---
+    static glm::vec3 localMove = {0, 0, 0};
+    if (ImGui::DragFloat3("Déplacement local", &localMove.x, 0.1f)) {
+        // Applique la rotation locale à l’offset
+        glm::quat rot = glm::quat(glm::radians(rotation));
+        position += rot * localMove;
+        // Remet à zéro pour le prochain drag
+        localMove = {0, 0, 0};
+    }
 }
 
 void TransformComponent::SetFromMatrix(const glm::mat4& matrix)

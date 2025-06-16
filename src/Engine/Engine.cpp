@@ -2,10 +2,13 @@
 #include "Engine/Material.h"
 #include "Engine/MaterialManager.h"
 #include "Input/InputManager.h"
+#include "Engine/Renderer.h"
+#include "Engine/Skybox.h"
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
 #include <iostream>
+#include <algorithm>
 
 Engine::Engine(bool running, const std::string& projectPath, const std::string& projectName)
     : m_running(running), m_window(nullptr), m_projectPath(projectPath), m_projectName(projectName), m_showLauncher(false)
@@ -60,6 +63,10 @@ void Engine::Init()
     ImGui::StyleColorsDark();
     ImGui_ImplGlfw_InitForOpenGL(m_window, false);
     ImGui_ImplOpenGL3_Init("#version 330");
+
+    Renderer::Init();
+
+    Renderer::SetSkybox(std::make_shared<Skybox>("assets/skybox/default2/Cubemap_Sky_01-512x512.png", true));
 }
 
 void Engine::InitUI() {
@@ -68,10 +75,13 @@ void Engine::InitUI() {
     m_hierarchy = std::make_unique<HierarchyWindow>();
     m_inspector = std::make_unique<InspectorWindow>();
     m_game = std::make_unique<GameWindow>();
+    m_game->SetScene(m_scene->GetScene().get());
     m_project = std::make_unique<ProjectWindow>();
     m_menuBar = std::make_unique<MenuBarUI>();
     m_menuBar->p_showLauncher = &m_showLauncher;
 
+    m_project->SetProjectPath(m_projectPath);
+    m_project->SetInspector(m_inspector.get());
     m_hierarchy->SetScene(m_scene->GetScene().get());
     m_inspector->SetScene(m_scene->GetScene().get());
 
@@ -89,6 +99,38 @@ void Engine::InitializeMaterials()
     defaultMat->roughness = 0.5f;
     matMgr.AddMaterial(defaultMat);
 }
+
+void Engine::LoadAllMaterials(const std::string& projectPath) {
+    namespace fs = std::filesystem;
+    fs::path materialsPath = projectPath + "/Assets";
+
+    for (const auto& entry : fs::recursive_directory_iterator(materialsPath)) {
+        if (entry.path().extension() == ".mat") {
+            std::ifstream in(entry.path());
+            if (!in.is_open()) continue;
+
+            auto mat = std::make_shared<Material>();
+            std::string line;
+            while (std::getline(in, line)) {
+                if (line.rfind("name=", 0) == 0) {
+                    mat->name = line.substr(5);
+                } else if (line.rfind("albedo=", 0) == 0) {
+                    sscanf(line.c_str(), "albedo=%f,%f,%f,%f",
+                            &mat->albedo.r, &mat->albedo.g, &mat->albedo.b, &mat->albedo.a);
+                } else if (line.rfind("metallic=", 0) == 0) {
+                    mat->metallic = std::stof(line.substr(9));
+                } else if (line.rfind("roughness=", 0) == 0) {
+                    mat->roughness = std::stof(line.substr(10));
+                } else if (line.rfind("opacity=", 0) == 0) {
+                    mat->opacity = std::stof(line.substr(8));
+                }
+            }
+
+            MaterialManager::Instance().AddMaterial(mat);
+        }
+    }
+}
+
 
 void Engine::Shutdown()
 {

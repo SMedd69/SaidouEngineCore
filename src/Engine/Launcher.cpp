@@ -82,12 +82,12 @@ std::string Launcher::Run()
             config.close();
             projectReady = true;
             selectedProject = finalPath;
-            SetNameProject(projectName);
         }
 
         ImGui::Separator();
 
         ImGui::Text("Projets existants");
+        ImGui::Separator();
         for (int i = 0; i < projects.size(); ++i) {
             bool isSelected = (i == selectedIndex);
             if (ImGui::Selectable(projects[i].c_str(), isSelected)) {
@@ -95,13 +95,18 @@ std::string Launcher::Run()
             }
         }
 
+
         if (selectedIndex >= 0) {
             if (ImGui::Button("Charger le projet sélectionné")) {
                 selectedProject = std::string(basePathBuffer) + "/" + projects[selectedIndex];
-
-                SetNameProject(projectName);
                 projectReady = true;
             }
+        }
+
+        if(projectReady)
+        {
+            std::cout << "Icii c'est ok\n";
+            SetNameProject(projectName);
         }
 
         ImGui::End();

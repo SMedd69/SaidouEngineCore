@@ -22,6 +22,7 @@ class Engine
         void Init();
         void InitUI();
         void InitializeMaterials();
+        void LoadAllMaterials(const std::string& projectPath);
         void Shutdown();
         void ProcessEvents();
         void BeginFrame();

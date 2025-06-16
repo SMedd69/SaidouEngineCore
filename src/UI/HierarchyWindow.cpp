@@ -3,6 +3,8 @@
 #include <Objects/BoxCollider.h>
 #include <Objects/MeshRenderer.h>
 #include <Objects/MeshFilter.h>
+#include <Objects/DirectionnalLightComponent.h>
+#include <Objects/CameraComponent.h>
 #include <Engine/MeshFactory.h>
 #include <imgui.h>
 #include <iostream>
@@ -98,6 +100,22 @@ void HierarchyWindow::DrawHierarchy(Scene& scene)
                 capsule->AddComponent(std::make_shared<MeshRenderer>());
                 capsule->AddComponent(std::make_shared<BoxCollider>());
                 scene.AddGameObject(capsule);
+            });
+
+            UI::ContextMenu::AddMenuItem("Créer une DirectionnalLight", [&]() {
+                auto directionnalLight = std::make_shared<GameObject>(MakeUniqueName(scene, "DirectionnalLight"));
+                directionnalLight->AddComponent(std::make_shared<TransformComponent>());
+                directionnalLight->AddComponent(std::make_shared<DirectionalLightComponent>());
+
+                scene.AddGameObject(directionnalLight);
+            });
+            
+            UI::ContextMenu::AddMenuItem("Créer une Caméra", [&]() {
+                auto camera = std::make_shared<GameObject>(MakeUniqueName(scene, "Camera"));
+                camera->AddComponent(std::make_shared<TransformComponent>());
+                camera->AddComponent(std::make_shared<CameraComponent>());
+
+                scene.AddGameObject(camera);
             });
 
             for (auto& item : UI::ContextMenu::s_menuItems) {
