@@ -31,6 +31,18 @@ std::shared_ptr<Skybox> Renderer::GetSkybox() {
     return s_skybox;
 }
 
+std::vector<std::string> Renderer::GetSkyboxFiles() {
+    std::vector<std::string> files;
+    // Remplace par le chemin de ton dossier de skybox
+    std::string skyboxPath = "assets/skybox/default2/";
+    for (const auto& entry : std::filesystem::directory_iterator(skyboxPath)) {
+        if (entry.is_regular_file() && entry.path().extension() == ".png") {
+            files.push_back(entry.path().string());
+        }
+    }
+    return files;
+}
+
 void Renderer::SetLightUniforms(const glm::vec3& dir, const glm::vec3& color, float intensity)
 {
     if (!s_defaultShader) return;
@@ -94,7 +106,8 @@ void Renderer::InitGameFramebuffer(int width, int height)
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
-
+int s_gameTextureWidth = 0;
+int s_gameTextureHeight = 0;
 unsigned int Renderer::RenderSceneToTexture(
     Scene* scene,
     const glm::mat4& view,
@@ -102,8 +115,12 @@ unsigned int Renderer::RenderSceneToTexture(
     int width,
     int height)
 {
-    if (!s_gameFBO || !s_gameTexture)
+    if (!s_gameFBO || !s_gameTexture || width != s_gameTextureWidth || height != s_gameTextureHeight)
+    {
         InitGameFramebuffer(width, height);
+        s_gameTextureWidth = width;
+        s_gameTextureHeight = height;
+    }
 
     glBindFramebuffer(GL_FRAMEBUFFER, s_gameFBO);
     glViewport(0, 0, width, height);

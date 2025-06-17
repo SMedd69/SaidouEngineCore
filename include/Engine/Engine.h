@@ -36,6 +36,7 @@ class Engine
         std::string m_projectPath;
         std::string m_projectName;
         bool m_showLauncher;
+        bool m_showGrid = true;
 
         bool ShouldReturnToLauncher() const { return m_showLauncher; }
 

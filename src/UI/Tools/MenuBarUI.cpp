@@ -1,5 +1,9 @@
 #include <UI/Tools/MenuBarUI.h>
 #include <imgui.h>
+#include <filesystem>
+#include <iostream>
+#include <Engine/Renderer.h>
+#include <Engine/Skybox.h>
 
 void MenuBarUI::Render()
 {
@@ -31,6 +35,35 @@ void MenuBarUI::Render()
             }
             if (ImGui::MenuItem("Rétablir", "Ctrl+Y")) {
                 // Action pour rétablir
+            }
+            if (ImGui::MenuItem("Activer/Désactiver la grille")) {
+                if(p_showGrid){
+                    // Inverser l'état de la grille
+                    if (*p_showGrid) {
+                        // Si la grille est activée, on la désactive
+                        *p_showGrid = false;
+                        std::cout << "Grille désactivée" << std::endl;
+                    } else {
+                        // Si la grille est désactivée, on l'active
+                        *p_showGrid = true;
+                        std::cout << "Grille activée" << std::endl;
+                    }
+                }
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Environnement")) {
+            // afficher un sous-menu pour changer l'environnement
+            if (ImGui::BeginMenu("Changer l'environnement")) {
+                // Dans se menu afficher la liste des fichiers png dans le dossier Assets/Skybox/default2
+                auto skyboxFiles = Renderer::GetSkyboxFiles();
+                for (const auto& file : skyboxFiles) {
+                    if (ImGui::MenuItem(file.c_str())) {
+                        Renderer::SetSkybox(std::make_shared<Skybox>(file, true));
+                    }
+                }
+                ImGui::EndMenu();
             }
             ImGui::EndMenu();
         }

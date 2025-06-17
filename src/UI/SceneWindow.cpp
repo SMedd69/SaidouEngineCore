@@ -37,7 +37,10 @@ void main()
     FragColor = vec4(vColor, 1.0);
 }
 )";
-
+struct GridVertex {
+    glm::vec3 pos;
+    glm::vec3 color;
+};
 SceneWindow::SceneWindow(GLFWwindow* window)
     : m_window(window), m_fbWidth(1), m_fbHeight(1)
 {
@@ -57,6 +60,22 @@ SceneWindow::SceneWindow(GLFWwindow* window)
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
     glGenRenderbuffers(1, &m_depthBuffer);
+}
+
+void SceneWindow::FocusCameraOnSelected()
+{
+    if (!m_scene || !m_scene->selectedObject)
+        return;
+
+    auto transform = m_scene->selectedObject->GetComponent<TransformComponent>();
+    if (!transform)
+        return;
+
+    // Centre la caméra sur la position de l'objet sélectionné
+    m_target = transform->position;
+
+    // Optionnel : ajuste la distance pour que l'objet soit bien visible
+    m_distance = 8.0f; // ou adapte selon la taille de l'objet
 }
 
 SceneWindow::~SceneWindow()
@@ -109,47 +128,19 @@ unsigned int SceneWindow::CreateShaderProgram(const char* vertexSrc, const char*
     return program;
 }
 
-struct GridVertex {
-    glm::vec3 pos;
-    glm::vec3 color;
-};
-
-void SceneWindow::InitGrid(int size, float step)
+void SceneWindow::InitGrid()
 {
-    std::vector<GridVertex> vertices;
-
-    glm::vec3 gridColor(0.7f, 0.7f, 0.7f);
-    glm::vec3 axisXColor(1.0f, 0.2f, 0.2f);
-    glm::vec3 axisZColor(0.2f, 0.4f, 1.0f);
-
-    for (int i = -size; i <= size; ++i) {
-        glm::vec3 color = (i == 0) ? axisXColor : gridColor;
-        // Lignes parallèles à Z (X varie)
-        vertices.push_back({ glm::vec3(i * step, 0.0f, -size * step), color });
-        vertices.push_back({ glm::vec3(i * step, 0.0f, size * step), color });
-
-        color = (i == 0) ? axisZColor : gridColor;
-        // Lignes parallèles à X (Z varie)
-        vertices.push_back({ glm::vec3(-size * step, 0.0f, i * step), color });
-        vertices.push_back({ glm::vec3(size * step, 0.0f, i * step), color });
-    }
-
-    m_gridVertexCount = vertices.size();
-
+    // Initialisation du VAO/VBO pour la grille dynamique
     glGenVertexArrays(1, &m_gridVAO);
     glGenBuffers(1, &m_gridVBO);
 
     glBindVertexArray(m_gridVAO);
     glBindBuffer(GL_ARRAY_BUFFER, m_gridVBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GridVertex), vertices.data(), GL_STATIC_DRAW);
-
-    // Position
+    // On ne remplit pas ici, ce sera fait dynamiquement dans DrawGrid()
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GridVertex), (void*)0);
     glEnableVertexAttribArray(0);
-    // Couleur
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GridVertex), (void*)offsetof(GridVertex, color));
     glEnableVertexAttribArray(1);
-
     glBindVertexArray(0);
 }
 
@@ -202,6 +193,9 @@ void SceneWindow::ProcessInput()
         mousePos.x >= scenePos.x && mousePos.x < scenePos.x + m_viewportWidth &&
         mousePos.y >= scenePos.y && mousePos.y < scenePos.y + m_viewportHeight;
 
+    if (mouseOverScene && ImGui::IsKeyPressed(ImGuiKey_F)) {
+        FocusCameraOnSelected();
+    }
     if (!mouseOverScene)
         return;
 
@@ -247,8 +241,58 @@ void SceneWindow::ProcessInput()
 
 void SceneWindow::DrawGrid()
 {
+    if (!m_gridEnabled)
+    {
+        std::cerr << "Grille désactivée, pas de rendu." << std::endl;
+        return;
+    }
+    if (m_gridVAO == 0 || m_gridVBO == 0)
+    {
+        std::cerr << "Grille non initialisée, pas de rendu." << std::endl;
+        return;
+    }
     glUseProgram(m_gridShaderProgram);
 
+    glm::vec3 camPos = GetCameraPosition();
+    float camDist = glm::length(camPos - m_target);
+
+    // --- Calcul du pas dynamique ---
+    float baseStep = 1.0f;
+    float logStep = std::pow(10.0f, std::floor(std::log10(camDist * 0.5f)));
+    float step = baseStep * logStep;
+
+    int halfLines = 100; // nombre de lignes de chaque côté (suffisant pour couvrir l'écran)
+
+    std::vector<GridVertex> vertices;
+
+    glm::vec3 gridColor(0.3f, 0.3f, 0.3f);
+    glm::vec3 mainColor(0.6f, 0.6f, 0.6f);
+    glm::vec3 axisXColor(1.0f, 0.2f, 0.2f);
+    glm::vec3 axisZColor(0.2f, 0.4f, 1.0f);
+
+    float gridY = 0.0f;
+
+    int camX = int(std::round(camPos.x / step));
+    int camZ = int(std::round(camPos.z / step));
+
+    for (int i = -halfLines; i <= halfLines; ++i) {
+        float x = (camX + i) * step;
+        glm::vec3 color = (i == 0) ? axisXColor : (( (camX + i) % 10 == 0 ) ? mainColor : gridColor);
+        vertices.push_back({ glm::vec3(x, gridY, (camZ - halfLines) * step), color });
+        vertices.push_back({ glm::vec3(x, gridY, (camZ + halfLines) * step), color });
+
+        float z = (camZ + i) * step;
+        color = (i == 0) ? axisZColor : (( (camZ + i) % 10 == 0 ) ? mainColor : gridColor);
+        vertices.push_back({ glm::vec3((camX - halfLines) * step, gridY, z), color });
+        vertices.push_back({ glm::vec3((camX + halfLines) * step, gridY, z), color });
+    }
+
+    // Upload dynamique du buffer
+    glBindVertexArray(m_gridVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, m_gridVBO);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GridVertex), vertices.data(), GL_DYNAMIC_DRAW);
+
+    // Matrices
     float aspect = m_viewportHeight > 0 ? float(m_viewportWidth) / m_viewportHeight : 1.0f;
     glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 100.0f);
     glm::mat4 view = GetViewMatrix();
@@ -262,10 +306,12 @@ void SceneWindow::DrawGrid()
     glUniformMatrix4fv(locView, 1, GL_FALSE, &view[0][0]);
     glUniformMatrix4fv(locProj, 1, GL_FALSE, &projection[0][0]);
 
-    glBindVertexArray(m_gridVAO);
-    glDrawArrays(GL_LINES, 0, m_gridVertexCount);
-    glBindVertexArray(0);
+    glDisable(GL_DEPTH_TEST);
+    glLineWidth(1.0f);
+    glDrawArrays(GL_LINES, 0, vertices.size());
+    glEnable(GL_DEPTH_TEST);
 
+    glBindVertexArray(0);
     glUseProgram(0);
 }
 
@@ -315,11 +361,9 @@ void SceneWindow::Render()
         glClearColor(0.6f, 0.6f, 0.6f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        DrawGrid();
-
         // Matrices de caméra
         float aspect = m_viewportHeight > 0 ? static_cast<float>(m_viewportWidth) / m_viewportHeight : 1.0f;
-        glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(m_fov), aspect, 0.1f, 3000.0f);
         glm::mat4 view = GetViewMatrix();
 
         glm::vec3 sunDir = glm::vec3(-1, -1, -1); // Valeur par défaut
@@ -336,6 +380,7 @@ void SceneWindow::Render()
         // --- Rendu des objets via RenderSystem ---
         RenderSystem::RenderScene(*m_scene, view, projection);
 
+        DrawGrid();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
         ImGuiIO& io = ImGui::GetIO();

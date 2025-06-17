@@ -13,6 +13,8 @@ public:
     static void DrawMesh(std::shared_ptr<Mesh> mesh, const glm::mat4& model, const std::string& materialName);
     static void SetViewProjection(const glm::mat4& view, const glm::mat4& projection);
     static void SetSkybox(std::shared_ptr<Skybox> skybox);
+    // Creaation de GetSkyboxFiles
+    static std::vector<std::string> GetSkyboxFiles();
     static std::shared_ptr<Skybox> GetSkybox();
     static unsigned int RenderSceneToTexture(
         Scene* scene,

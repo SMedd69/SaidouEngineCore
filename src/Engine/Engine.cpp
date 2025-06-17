@@ -4,6 +4,7 @@
 #include "Input/InputManager.h"
 #include "Engine/Renderer.h"
 #include "Engine/Skybox.h"
+#include "UI/Tools/IconManager.h"
 #include <imgui.h>
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_opengl3.h>
@@ -76,9 +77,13 @@ void Engine::InitUI() {
     m_inspector = std::make_unique<InspectorWindow>();
     m_game = std::make_unique<GameWindow>();
     m_game->SetScene(m_scene->GetScene().get());
+    IconManager::Instance().Init();
     m_project = std::make_unique<ProjectWindow>();
     m_menuBar = std::make_unique<MenuBarUI>();
     m_menuBar->p_showLauncher = &m_showLauncher;
+    m_menuBar->p_showGrid = &m_showGrid;
+    m_scene->SetGridEnabled(m_showGrid);
+
 
     m_project->SetProjectPath(m_projectPath);
     m_project->SetInspector(m_inspector.get());
