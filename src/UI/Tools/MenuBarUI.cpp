@@ -42,11 +42,9 @@ void MenuBarUI::Render()
                     if (*p_showGrid) {
                         // Si la grille est activée, on la désactive
                         *p_showGrid = false;
-                        std::cout << "Grille désactivée" << std::endl;
                     } else {
                         // Si la grille est désactivée, on l'active
                         *p_showGrid = true;
-                        std::cout << "Grille activée" << std::endl;
                     }
                 }
             }

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <imgui.h>
 
-ImTextureID LoadTexture(const std::string& filename)
+ImTextureRef LoadTexture(const std::string& filename)
 {
     int width, height, channels;
     unsigned char* data = stbi_load(filename.c_str(), &width, &height, &channels, 4);
@@ -24,5 +24,7 @@ ImTextureID LoadTexture(const std::string& filename)
 
     stbi_image_free(data);
 
-    return (ImTextureID)(uintptr_t)texID;
+    std::cout << "Texture loaded: " << filename << " (id = " << texID << ")" << std::endl;
+
+    return (ImTextureRef)texID;  // ✅ pas besoin de cast si ImTextureID == GLuint
 }

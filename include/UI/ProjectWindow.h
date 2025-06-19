@@ -3,6 +3,8 @@
 #include <UI/InspectorWindow.h>
 #include <string>
 #include <filesystem>
+#include <algorithm>
+#include <set>
 
 namespace fs = std::filesystem;
 
@@ -12,16 +14,22 @@ public:
     void SetProjectPath(const std::string& path);
     InspectorWindow* m_inspector = nullptr;
     void SetInspector(InspectorWindow* inspector) { m_inspector = inspector; }
+    void HandleFileSelection(const fs::path& path);
+    std::string GetIconNameForFile(const fs::path& path);
 
 private:
     bool m_isCreatingMaterial = false;
     char m_newMaterialName[128] = "NewMaterial";
+    bool m_isCreatingScript = false;
+    char m_newScriptName[128] = "NewScript";
 
     std::string m_projectPath;
     std::string m_renamingFolder;
     std::filesystem::path m_selectedFolder = "Assets";
     std::filesystem::path m_contextFolderPath;
     std::filesystem::path m_selectedFile;
+
+    std::set<std::filesystem::path> m_selectedItems;
 
     bool m_isCreatingFolder = false;
 

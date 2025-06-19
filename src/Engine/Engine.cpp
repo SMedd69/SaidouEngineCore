@@ -71,19 +71,17 @@ void Engine::Init()
 }
 
 void Engine::InitUI() {
+    IconManager::Instance().Init();
     m_dockspace = std::make_unique<DockspaceWindow>();
     m_scene = std::make_unique<SceneWindow>(m_window);
     m_hierarchy = std::make_unique<HierarchyWindow>();
     m_inspector = std::make_unique<InspectorWindow>();
     m_game = std::make_unique<GameWindow>();
     m_game->SetScene(m_scene->GetScene().get());
-    IconManager::Instance().Init();
     m_project = std::make_unique<ProjectWindow>();
     m_menuBar = std::make_unique<MenuBarUI>();
     m_menuBar->p_showLauncher = &m_showLauncher;
     m_menuBar->p_showGrid = &m_showGrid;
-    m_scene->SetGridEnabled(m_showGrid);
-
 
     m_project->SetProjectPath(m_projectPath);
     m_project->SetInspector(m_inspector.get());
@@ -166,7 +164,10 @@ void Engine::BeginFrame()
 void Engine::RenderUI()
 {
     if(m_dockspace) m_dockspace->Render();
-    if(m_scene) m_scene->Render();
+    if(m_scene) {
+        m_scene->SetGridEnabled(m_showGrid);
+        m_scene->Render();
+    }
     if(m_hierarchy) m_hierarchy->Render();
     if(m_inspector) m_inspector->Render();
     if(m_game) m_game->Render();

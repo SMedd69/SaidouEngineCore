@@ -241,16 +241,10 @@ void SceneWindow::ProcessInput()
 
 void SceneWindow::DrawGrid()
 {
-    if (!m_gridEnabled)
-    {
-        std::cerr << "Grille désactivée, pas de rendu." << std::endl;
-        return;
-    }
-    if (m_gridVAO == 0 || m_gridVBO == 0)
-    {
-        std::cerr << "Grille non initialisée, pas de rendu." << std::endl;
-        return;
-    }
+    if (!IsGridEnabled()) return;
+
+    if (m_gridVAO == 0 || m_gridVBO == 0) return;
+
     glUseProgram(m_gridShaderProgram);
 
     glm::vec3 camPos = GetCameraPosition();

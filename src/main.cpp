@@ -4,7 +4,6 @@
 
 int main()
 {
-    std::cout << "Current path: " << std::filesystem::current_path() << std::endl;
     bool quit = false;
     std::string projectPath;
     std::string nameProject;
@@ -16,7 +15,6 @@ int main()
 
         if (projectPath.empty())
         {
-            std::cerr << "Aucun projet sélectionné.\n";
             break; // Quitter si aucun projet choisi
         }
 

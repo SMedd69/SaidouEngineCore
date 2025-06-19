@@ -106,13 +106,47 @@ std::string Launcher::Run()
                 selectedProject = std::string(basePathBuffer) + "/" + projects[selectedIndex];
                 projectReady = true;
             }
+
+            ImGui::Spacing();
+
+            static bool confirmDelete = false;
+            static std::string projectToDelete;
+
+            if (ImGui::Button("Supprimer le projet sélectionné", ImVec2(-1, 0))) {
+                projectToDelete = std::string(basePathBuffer) + "/" + projects[selectedIndex];
+                ImGui::OpenPopup("Confirmer la suppression");
+            }
+
+            if (ImGui::BeginPopupModal("Confirmer la suppression", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Êtes-vous sûr de vouloir supprimer ce projet ?\nCela supprimera tous ses fichiers.\n\n");
+                ImGui::Separator();
+
+                if (ImGui::Button("Oui, supprimer", ImVec2(120, 0))) {
+                    try {
+                        fs::remove_all(projectToDelete);
+                        projects = listProjects();
+                        selectedIndex = -1;
+                        strcpy(projectName, "");
+                        errorMsg.clear();
+                    } catch (const std::exception& e) {
+                        errorMsg = std::string("Erreur lors de la suppression : ") + e.what();
+                    }
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::SameLine();
+                if (ImGui::Button("Annuler", ImVec2(120, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+
+                ImGui::EndPopup();
+            }
         }
 
         ImGui::NextColumn();
 
         // Colonne droite : création de projet
         ImGui::Text("Créer un nouveau projet");
-        ImGui::Separator();
+        // ImGui::Separator();
         ImGui::InputText("Nom du projet", projectName, IM_ARRAYSIZE(projectName));
         ImGui::InputText("Répertoire de base", basePathBuffer, IM_ARRAYSIZE(basePathBuffer));
         if (ImGui::Button("Actualiser les projets existants")) {

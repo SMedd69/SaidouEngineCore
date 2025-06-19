@@ -2,4 +2,4 @@
 #include <string>
 #include <imgui.h>
 
-ImTextureID LoadTexture(const std::string& filename);
+ImTextureRef LoadTexture(const std::string& filename);

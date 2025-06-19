@@ -1,5 +1,7 @@
 #include <UI/ProjectWindow.h>
 #include <Engine/MaterialManager.h>
+#include <Engine/ScriptManager.h>
+#include <UI/Tools/IconManager.h>
 #include <Engine/Material.h>
 #include <imgui.h>
 #include <filesystem>
@@ -37,6 +39,11 @@ void ProjectWindow::ShowContextMenu(const fs::path& targetFolder, const fs::path
     if (ImGui::MenuItem("Nouveau material")) {
         m_isCreatingMaterial = true;
         strcpy(m_newMaterialName, "NewMaterial");
+        m_contextFolderPath = targetFolder;
+    }
+    if (ImGui::MenuItem("Nouveau script")) {
+        m_isCreatingScript = true;
+        strcpy(m_newScriptName, "NewScript");
         m_contextFolderPath = targetFolder;
     }
 }
@@ -120,6 +127,9 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
             ImGui::NextColumn();
         } else {
             // Mode liste
+            ImGui::PushID(entry.path().string().c_str());
+
+            // Renommage
             if (m_isRenaming && entry.path() == m_renamingPath) {
                 ImGui::PushID(name.c_str());
                 ImGui::SetKeyboardFocusHere();
@@ -141,16 +151,15 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
                 if (ImGui::Selectable(label.c_str(), false)) {
                     m_selectedFolder = entry.path();
                 }
-                if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(0)) {
-                    m_selectedFolder = entry.path();
-                }
                 if (ImGui::BeginPopupContextItem()) {
                     ShowContextMenu(folder, entry.path(), true, true);
                     ImGui::EndPopup();
                 }
             }
+            ImGui::PopID();
         }
     }
+
     // Création de dossier (InputText hors boucle si le dossier n'existe pas encore)
     if (m_isRenaming && !fs::exists(m_renamingPath) && !m_renamingPath.empty()) {
         ImGui::PushID(m_renamingPath.string().c_str());
@@ -163,6 +172,7 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
             }
             m_isRenaming = false;
             m_renamingPath.clear();
+            m_selectedFolder = newPath;
         }
         if (ImGui::IsItemDeactivatedAfterEdit()) {
             m_isRenaming = false;
@@ -170,6 +180,7 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
         }
         ImGui::PopID();
     }
+
     // Puis fichiers
     for (const auto& entry : fs::directory_iterator(folder)) {
         if (entry.is_directory()) continue;
@@ -178,8 +189,9 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
 
         if (iconMode) {
             ImGui::BeginGroup();
+
             if (m_isRenaming && entry.path() == m_renamingPath) {
-                ImGui::PushID(name.c_str());
+                ImGui::PushID("Rename");
                 ImGui::SetKeyboardFocusHere();
                 if (ImGui::InputText("##Rename", m_renamingBuffer, sizeof(m_renamingBuffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
                     std::string newName(m_renamingBuffer);
@@ -194,11 +206,18 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
                     m_isRenaming = false;
                 }
                 ImGui::PopID();
-            } else {
+            }
+            else {
                 ImGui::Button(("📄##" + name).c_str(), ImVec2(s_iconSize, s_iconSize));
+
+                // std::string iconName = GetIconNameForFile(entry.path());
+
+                // IconManager::Instance().ShowIcon(iconName, ImVec2(s_iconSize, s_iconSize));
+
                 if (ImGui::IsItemClicked()) {
-                    m_selectedFile = entry.path();
+                    HandleFileSelection(entry.path());
                 }
+
                 if (ImGui::BeginPopupContextItem()) {
                     ShowContextMenu(folder, entry.path(), false, true);
                     ImGui::EndPopup();
@@ -206,6 +225,7 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
                 // Affiche sans extension en mode icône
                 ImGui::TextWrapped("%s", nameNoExt.c_str());
             }
+
             ImGui::EndGroup();
             ImGui::NextColumn();
         } else {
@@ -226,19 +246,18 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
                 }
                 ImGui::PopID();
             } else {
-                std::string label = nameNoExt;
+                std::string label;
+                std::string ext = entry.path().extension().string();
+                if (ext == ".cpp" || ext == ".h") {
+                    label = name; // avec extension
+                } else {
+                    label = nameNoExt; // sans extension
+                }
+
                 if (ImGui::Selectable(label.c_str(), false)) {
-                    m_selectedFile = entry.path();
+                    HandleFileSelection(entry.path());
                 }
-                if (entry.path().extension() == ".mat" && ImGui::IsItemClicked()) {
-                    // Charger le material depuis le nom ou le chemin
-                    std::string matName = entry.path().stem().string();
-                    auto mat = MaterialManager::Instance().GetMaterial(matName);
-                    if (mat) {
-                        // Passe le pointeur au singleton InspectorWindow (ou via un setter)
-                        m_inspector->SetSelectedMaterial(mat);
-                    }
-                }
+
                 if (ImGui::BeginPopupContextItem()) {
                     ShowContextMenu(folder, entry.path(), false, true);
                     ImGui::EndPopup();
@@ -292,6 +311,71 @@ void ProjectWindow::RenderDirectory(const fs::path& folder) {
         }
         ImGui::EndPopup();
     }
+    // Création de script
+    if (m_isCreatingScript) {
+        ImGui::OpenPopup("Créer un script");
+    }
+
+    if (ImGui::BeginPopupModal("Créer un script", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::InputText("Nom du script", m_newScriptName, sizeof(m_newScriptName));
+        if (ImGui::Button("Valider")) {
+            std::string baseName = m_newScriptName;
+            std::string uniqueName = baseName;
+            int index = 1;
+
+            fs::path headerPath, sourcePath;
+
+            do {
+                headerPath = m_contextFolderPath / (uniqueName + ".h");
+                sourcePath = m_contextFolderPath / (uniqueName + ".cpp");
+                if (fs::exists(headerPath) || fs::exists(sourcePath)) {
+                    uniqueName = baseName + "_" + std::to_string(index++);
+                } else break;
+            } while (true);
+
+            if (IsValidName(uniqueName) && IsPathInProject(headerPath) && IsPathInProject(sourcePath)) {
+                std::ofstream outH(headerPath), outCpp(sourcePath);
+
+                if (outH.is_open()) {
+                    outH << "#pragma once\n\n"
+                        << "// " << uniqueName << ".h\n\n"
+                        << "class " << uniqueName << " {\n"
+                        << "public:\n"
+                        << "    " << uniqueName << "();\n"
+                        << "    ~" << uniqueName << "();\n"
+                        << "    void Update();\n"
+                        << "};\n";
+                    outH.close();
+                }
+
+                if (outCpp.is_open()) {
+                    outCpp << "#include \"" << uniqueName << ".h\"\n\n"
+                        << uniqueName << "::" << uniqueName << "() {}\n"
+                        << uniqueName << "::~" << uniqueName << "() {}\n"
+                        << "void " << uniqueName << "::Update() {}\n";
+                    outCpp.close();
+                }
+
+                auto newScript = std::make_shared<ScriptComponent>();
+                newScript->SetPathHeader(headerPath.string());
+                newScript->SetPathSource(sourcePath.string());
+                newScript->SetName(uniqueName);
+                ScriptManager::Instance().AddScript(newScript);
+            }
+
+            m_isCreatingScript = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::SameLine();
+        if (ImGui::Button("Annuler")) {
+            m_isCreatingScript = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::EndPopup();
+    }
+
 
     // Préparation du renommage lors de la création de dossier
     if (m_isCreatingFolder) {
@@ -369,4 +453,32 @@ bool ProjectWindow::IsPathInProject(const std::filesystem::path& path) const {
     auto absProject = fs::absolute(m_projectPath);
     auto absPath = fs::absolute(path);
     return std::mismatch(absProject.begin(), absProject.end(), absPath.begin()).first == absProject.end();
+}
+
+void ProjectWindow::HandleFileSelection(const fs::path& path) {
+    m_selectedFile = path;
+    std::string ext = path.extension().string();
+    std::string nameNoExt = path.stem().string();
+
+    if (ext == ".mat") {
+        auto mat = MaterialManager::Instance().GetMaterial(nameNoExt);
+        if (mat) {
+            m_inspector->SetSelectedMaterial(mat);
+        }
+    } else if (ext == ".cpp" || ext == ".h") {
+        auto script = ScriptManager::Instance().GetScript(nameNoExt);
+        if (script) {
+            if (ext == ".h")
+                script->SetPathHeader(path.string());
+            else
+                script->SetPathSource(path.string());
+            m_inspector->SetSelectedScript(script);
+        }
+    }
+}
+
+std::string ProjectWindow::GetIconNameForFile(const fs::path& path) {
+    if (path.extension() == ".cpp" || path.extension() == ".h") return "file_config";
+    if (path.extension() == ".mat") return "material";
+    return "file"; // Fichier générique
 }

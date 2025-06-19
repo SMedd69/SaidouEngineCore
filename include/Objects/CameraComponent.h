@@ -8,7 +8,7 @@ class CameraComponent : public Component {
 public:
     float fov = 60.0f;
     float nearClip = 0.1f;
-    float farClip = 100.0f;
+    float farClip = 1000.0f;
 
     glm::mat4 GetProjectionMatrix(float aspect) const {
         return glm::perspective(glm::radians(fov), aspect, nearClip, farClip);

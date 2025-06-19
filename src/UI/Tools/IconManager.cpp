@@ -1,5 +1,6 @@
 #include <UI/Tools/IconManager.h>
 #include <UI/Tools/TextureLoader.h> // À adapter selon ta fonction de chargement de texture
+#include <iostream>
 
 IconManager& IconManager::Instance() {
     static IconManager instance;
@@ -16,16 +17,23 @@ void IconManager::Init() {
     // Ajoute d'autres icônes ici...
 }
 
-ImTextureID IconManager::GetIcon(const std::string& name) {
+ImTextureRef IconManager::GetIcon(const std::string& name) {
     auto it = m_icons.find(name);
-    if (it != m_icons.end()) return it->second;
-    return (ImTextureID)nullptr;
+    if (it != m_icons.end()) {
+        std::cout << "Icon : " + name << std::endl;
+        return it->second;
+    }
+    return (ImTextureID)0;
 }
 
-void IconManager::ShowIcon(const std::string& name, ImVec2 size) {
-    ImTextureID tex = GetIcon(name);
-    if (tex)
-        ImGui::Image(tex, size);
-    else
-        ImGui::Dummy(size); // Affiche un espace vide si l'icône n'existe pas
+void IconManager::ShowIcon(const std::string& name, const ImVec2& size) {
+    ImTextureRef texId = GetIcon(name);
+
+    // Si texture toujours invalide, éviter le crash
+    if (texId.GetTexID()) {
+        ImGui::Image(texId.GetTexID(), size);
+    } else {
+        // Afficher un dummy invisible mais sans crasher
+        ImGui::Dummy(size);
+    }
 }

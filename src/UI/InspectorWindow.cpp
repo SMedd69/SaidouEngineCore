@@ -3,6 +3,8 @@
 #include <Objects/MeshRenderer.h>
 #include <Objects/BoxCollider.h>
 #include <Objects/MeshFilter.h>
+#include <Objects/CameraComponent.h>
+#include <Objects/DirectionnalLightComponent.h>
 #include <imgui.h>
 
 void InspectorWindow::Render()
@@ -12,7 +14,10 @@ void InspectorWindow::Render()
 
 void InspectorWindow::DrawInspector(Scene& scene) {
     ImGui::Begin("Inspector");
-
+    if (m_selectedScript) {
+        ImGui::Text("Script Name: %s", m_selectedScript->GetName().c_str());
+        m_selectedScript->OnInspectorGUI();
+    }
     if (m_selectedMaterial) {
         // Affiche l’inspecteur du Material sélectionné dans le projet
         m_selectedMaterial->OnInspectorGUI();
@@ -23,7 +28,7 @@ void InspectorWindow::DrawInspector(Scene& scene) {
                 m_selectedMaterial = nullptr;
             }
         }
-    } 
+    }
     else if (scene.selectedObject) {
         // Affiche l’inspecteur du GameObject sélectionné dans la scène
         ImGui::Text("GameObject: %s", scene.selectedObject->name.c_str());
@@ -46,6 +51,15 @@ void InspectorWindow::DrawInspector(Scene& scene) {
             if (ImGui::MenuItem("MeshFilter")) {
                 scene.selectedObject->AddComponent(std::make_shared<MeshFilter>());
             }
+            if (ImGui::MenuItem("Camera")) {
+                scene.selectedObject->AddComponent(std::make_shared<CameraComponent>());
+            }
+            if(ImGui::BeginMenu("Light Components")) {
+                if (ImGui::MenuItem("Directional Light")) {
+                    scene.selectedObject->AddComponent(std::make_shared<DirectionalLightComponent>());
+                }
+                ImGui::EndMenu();
+            }
             ImGui::EndPopup();
         }
 
@@ -55,7 +69,7 @@ void InspectorWindow::DrawInspector(Scene& scene) {
                 scene.selectedObject = nullptr;
             }
         }
-    } 
+    }
     else {
         ImGui::Text("No GameObject or Material selected");
     }
